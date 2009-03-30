@@ -29,6 +29,8 @@ class WALegislationScraper(LegislationScraper):
             print summary_url
             summary = parse(summary_url).getroot()
             
+            #TODO, this doesn't work for 2005
+            
             if summary.cssselect('span#ctl00_contentRegion_lblShortBillID')[0].text.startswith('HB'):
                 chamber = "lower"
             else:
@@ -41,6 +43,12 @@ class WALegislationScraper(LegislationScraper):
             versions = summary.cssselect('td[style*="dashed"] a[href*="/Pdf/Bills"]')
             for version in versions:
                 self.add_bill_version(chamber, session, number, version.text, version.get('href'))
+                
+            sponsors = summary.cssselect('td:contains("Sponsors:") span.ObviousLink a')               
+            for sponsor in sponsors:
+                self.add_sponsorship(chamber, session, number, 'cosponsor', sponsor.text)
+            
+            #TODO: next -- actions
             
             #debug
             break
