@@ -80,7 +80,6 @@ class WALegislationScraper(LegislationScraper):
                         for link in links:
                             z[0].remove(link)
                         act = z[0].text_content().strip().rstrip('.')
-                        print act
                         page_actions.append([act,action_chamber])
 
                 #reverse to match up w/ order of feed
@@ -92,7 +91,6 @@ class WALegislationScraper(LegislationScraper):
                 actions = actions_feed.cssselect('item title')
                 i = 0
                 for action in actions:
-                    #print action.text
                     action_split = action.text.split(' - ')
                     action_date = action_split[1]
                     action_desc = action_split[2]
