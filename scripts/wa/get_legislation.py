@@ -47,8 +47,61 @@ class WALegislationScraper(LegislationScraper):
             sponsors = summary.cssselect('td:contains("Sponsors:") span.ObviousLink a')               
             for sponsor in sponsors:
                 self.add_sponsorship(chamber, session, number, 'cosponsor', sponsor.text)
+                       
+            #TODO: amendments -- new thing? -- isamendment field on version
+            #TODO: new csv, not in core, fiscal_notes
+            #TODO: extra field on action for the bill version link
             
-            #TODO: next -- actions
+            
+            #the dates are incomplete on the web page we're scraping
+            #so we must match the page w/ the rss feed to get all the goods
+            #the rss feed doesn't have the chamber for the actions, so we scrape that from the page
+            page_actions = []
+            action_chamber = chamber #start with the originating chamber
+            for x in summary.cssselect('tr#ctl00_contentRegion_trPlaceHolder>td>table>tr'):
+                y = x.cssselect('td[colspan="3"] b')
+                if len(y) > 0:
+                    header = y[0].text
+                    print header
+                    #grab the action chamber and hang on to it until it changes
+                    #TODO: find an example where it changes and test
+                    if header.endswith("SENATE"):
+                        action_chamber = 'upper'
+                    if header.endswith("HOUSE"):
+                        action_chamber = 'lower'
+                z = x.cssselect('td[width="100%"]')
+                if len(z) > 0:
+                    #clip out the links to other stuff
+                    links = z[0].cssselect('span.HistoryLink')
+                    for link in links:
+                        z[0].remove(link)
+                    act = z[0].text_content().strip().rstrip('.')
+                    print act
+                    page_actions.append([act,action_chamber])
+
+            #reverse to match up w/ order of feed
+            page_actions.reverse()
+
+            #testing mocks
+#            chamber = 'lower'
+#            year = '2009'
+#            number = '1004'
+#            session = '2009'
+#            test = []
+
+            actions_feed_url = 'http://apps.leg.wa.gov/billinfo/summaryrss.aspx?year=%s&bill=%s' % (year, number)
+            print actions_feed_url
+            actions_feed = parse(actions_feed_url).getroot()
+            actions = actions_feed.cssselect('item title')
+            i = 0
+            for action in actions:
+                print action.text
+                action_split = action.text.split(' - ')
+                action_date = action_split[1]
+                action_desc = action_split[2]
+                action_chamber = page_actions[i][1]
+                i += 1
+                self.add_action(chamber, session, number, action_chamber, action_desc, action_date)                
             
             #debug
             break
