@@ -9,9 +9,15 @@ import sys
 sys.path.append('./scripts')
 from pyutils.legislation import LegislationScraper, NoDataForYear
 
-#in wa, three-digit-numbered bills are initiatives and exist for both the upper and lower chambers
-
 #this parser ignores the chamber parameter and always gets everything for both chambers
+#
+#in wa, three-digit-numbered bills are initiatives and have the same number in both the upper and lower chambers
+#
+#other data we could be collecting:
+#   amendments http://dlr.leg.wa.gov/billsummary/default.aspx?Bill=1010&year=1995
+#   if the legislation is a bill or an initiative http://dlr.leg.wa.gov/billsummary/default.aspx?year=2005&bill=330&chamber=H
+#   fiscal notes http://dlr.leg.wa.gov/billsummary/default.aspx?year=2005&bill=1098
+#   actions have associated bill versions http://dlr.leg.wa.gov/billsummary/default.aspx?year=2005&bill=1098
 
 class WALegislationScraper(LegislationScraper):
 
@@ -19,15 +25,15 @@ class WALegislationScraper(LegislationScraper):
 
     def scrape(self, year):
       
-        # get bills by topic search page -- gives a list of bill IDs per year
+        #get bills by topic search page -- gives a list of bill IDs per year
         bills_url = 'http://apps.leg.wa.gov/billsbytopic/default.aspx?year=%s' % (year)
         print bills_url
         bills = parse(bills_url).getroot()
         for option in bills.cssselect('select#ucDefault_talCriteria option'):
             number = option.text
             
+            #three-numbered bills are initiatives, same number in both chambers
             if len(number) == 3:
-                #pass
                 self.scrape_bill(year, number, 'H')
                 self.scrape_bill(year, number, 'S')
             else:
@@ -62,14 +68,11 @@ class WALegislationScraper(LegislationScraper):
         sponsors = summary.cssselect('td:contains("Sponsors:") span.ObviousLink a')               
         for sponsor in sponsors:
             self.add_sponsorship(chamber, session, number, 'cosponsor', sponsor.text)
-                   
-        #TODO: amendments -- new thing? -- isamendment field on version
-        #TODO: new csv, not in core, fiscal_notes
-        #TODO: extra field on action for the bill version link
         
         page_actions = []
         action_year = 0
         for row in summary.cssselect('tr#ctl00_contentRegion_trPlaceHolder>td>table>tr'):
+            
             header_cell = row.cssselect('td[colspan="3"] b')
             if len(header_cell) > 0:
                 header = header_cell[0].text
@@ -87,10 +90,12 @@ class WALegislationScraper(LegislationScraper):
                     action_chamber = 'special'
                 else:
                     raise Exception, "unexpected header: " + header
+                
             date_cell = row.cssselect('td[valign="top"]')
             if len(date_cell) > 0:
                 if date_cell[0].text: 
                     action_date = "%s, %s" % (date_cell[0].text, action_year)
+                    
             desc_cell = row.cssselect('td[width="100%"]')
             if len(desc_cell) > 0:
                 #clip out the links to other stuff
@@ -99,7 +104,6 @@ class WALegislationScraper(LegislationScraper):
                     desc_cell[0].remove(link)
                 action_desc = desc_cell[0].text_content().strip().rstrip('.')
 
-                #TODO: add initiative column
                 self.add_action(chamber, session, number, action_chamber, action_desc, action_date)
     
     def scrape_bills(self, chamber, year):
